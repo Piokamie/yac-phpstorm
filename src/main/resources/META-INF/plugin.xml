@@ -1,0 +1,33 @@
+<idea-plugin>
+    <id>dev.icebear.yac</id>
+    <name>YAC</name>
+    <vendor url="https://github.com/Piokamie/yac-phpstorm">Piotr Kamieniecki</vendor>
+    <description><![CDATA[
+    Shows <a href="https://github.com/Piokamie/yac">YAC</a> agent notes next to the PHP code they describe.
+    Notes live in <code>.yac/</code> sidecars and are resolved by the project's own <code>yac</code> CLI.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.jetbrains.php</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <notificationGroup id="YAC" displayType="BALLOON"/>
+        <editorFactoryListener implementation="dev.icebear.yac.notes.YacEditorListener"/>
+        <editorFactoryDocumentListener implementation="dev.icebear.yac.notes.YacDocumentListener"/>
+        <projectConfigurable parentId="tools" instance="dev.icebear.yac.settings.YacConfigurable" id="dev.icebear.yac.settings" displayName="YAC"/>
+    </extensions>
+
+    <actions>
+        <group id="Yac.FileActions" text="YAC" popup="true" icon="/icons/note.svg">
+            <action id="Yac.ExtractFile" class="dev.icebear.yac.actions.ExtractFileAction" text="Extract Inline Notes"
+                    description="Move inline @yac comments of the selection into .yac/ sidecars"/>
+            <action id="Yac.InjectFile" class="dev.icebear.yac.actions.InjectFileAction" text="Inject Notes as Inline Comments"
+                    description="Write the YAC notes of the selection back into the source as inline @yac comments"/>
+            <separator/>
+            <action id="Yac.YeetFile" class="dev.icebear.yac.actions.YeetFileAction" text="Yeet Notes…"
+                    description="Delete all YAC notes of the selection (the PHP source is not touched)"/>
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+        </group>
+    </actions>
+</idea-plugin>
