@@ -10,8 +10,9 @@ import com.intellij.openapi.util.Key
 import dev.icebear.yac.cli.Note
 
 object NotesPresenter {
-    private val PRESENTATION = Key.create<Presentation>("yac.presentation")
     private const val FIRST_LINE = 0
+    private const val INLAY_PRIORITY = 0
+    private val PRESENTATION = Key.create<Presentation>("yac.presentation")
 
     fun render(editor: Editor, notes: List<Note>, shouldShowInlays: Boolean) {
         clear(editor)
@@ -39,7 +40,7 @@ object NotesPresenter {
                     codeStart++
                 }
 
-                editor.inlayModel.addBlockElement(lineStart, false, true, 0, NoteInlayRenderer(note, editor.offsetToXY(codeStart).x))
+                editor.inlayModel.addBlockElement(lineStart, false, true, INLAY_PRIORITY, NoteInlayRenderer(note, editor.offsetToXY(codeStart).x))
             }
         }
 

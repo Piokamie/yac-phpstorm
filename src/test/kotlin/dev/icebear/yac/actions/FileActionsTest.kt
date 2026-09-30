@@ -17,6 +17,25 @@ class FileActionsTest : YacTestCase() {
         return event.presentation.isEnabledAndVisible
     }
 
+    private fun isGroupVisible(files: List<VirtualFile>): Boolean {
+        val group = YacFileActionGroup()
+        val context = SimpleDataContext.builder().add(CommonDataKeys.PROJECT, project).add(CommonDataKeys.VIRTUAL_FILE_ARRAY, files.toTypedArray()).build()
+        val event = TestActionEvent.createTestEvent(group, context)
+        group.update(event)
+
+        return event.presentation.isEnabledAndVisible
+    }
+
+    fun testGroupIsHiddenWhereNoFileActionApplies() {
+        val withYac = TemporaryTree.create().directory(".git").fakeYac().file("A.php")
+        val withoutYac = TemporaryTree.create().directory(".git").file("C.php")
+
+        assertEquals(
+            listOf(true, false, false),
+            listOf(listOf(withYac.find("A.php")), listOf(withoutYac.find("C.php")), emptyList()).map { isGroupVisible(it) },
+        )
+    }
+
     fun testTargetsAreSourcesRelativeToOneYacRoot() {
         val tree = TemporaryTree.create().directory(".git").fakeYac().file("src/A.php").file("src/B.php")
         val files = listOf(tree.find(), tree.find("src/A.php"), tree.find("src"))

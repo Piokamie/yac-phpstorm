@@ -4,6 +4,7 @@ import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.process.CapturingProcessAdapter
 import com.intellij.execution.process.OSProcessHandler
 import com.intellij.execution.process.ProcessOutput
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.logger
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
@@ -15,13 +16,13 @@ import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 
 class YacCli(
-    private val php: String,
-    private val yac: String,
+    internal val php: String,
+    internal val yac: String,
     private val workingDirectory: Path,
     private val contextTimeoutMillis: Long = CONTEXT_TIMEOUT_MILLIS,
 ) {
     fun run(arguments: List<String>, stdin: String? = null, timeoutMillis: Long? = null, checkCanceled: () -> Unit = {}): YacProcessResult {
-        val commandLine = GeneralCommandLine(listOf(php, yac) + arguments)
+        val commandLine = GeneralCommandLine(listOf(php) + PHP_OPTIONS + yac + arguments)
             .withWorkingDirectory(workingDirectory)
             .withCharset(StandardCharsets.UTF_8)
             .withParentEnvironmentType(GeneralCommandLine.ParentEnvironmentType.CONSOLE)
@@ -30,13 +31,9 @@ class YacCli(
         val handler = OSProcessHandler(commandLine)
         handler.addProcessListener(CapturingProcessAdapter(output))
         handler.startNotify()
-        try {
-            handler.processInput?.use { input -> stdin?.let { input.write(it.toByteArray(StandardCharsets.UTF_8)) } }
-        } catch (exception: IOException) {
-            LOG.debug("yac exited before reading stdin", exception)
-        }
-
         val deadline = timeoutMillis?.let { System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(it) }
+        ApplicationManager.getApplication().executeOnPooledThread { feed(handler, stdin.orEmpty()) }
+
         while (!handler.waitFor(POLL_MILLIS)) {
             try {
                 checkCanceled()
@@ -54,6 +51,14 @@ class YacCli(
         }
 
         return YacProcessResult(output.exitCode, output.stdout, output.stderr)
+    }
+
+    private fun feed(handler: OSProcessHandler, stdin: String) {
+        try {
+            handler.processInput?.use { it.write(stdin.toByteArray(StandardCharsets.UTF_8)) }
+        } catch (exception: IOException) {
+            LOG.debug("yac exited before reading stdin", exception)
+        }
     }
 
     fun context(source: String, contents: String, checkCanceled: () -> Unit = {}): ContextResult {
@@ -85,11 +90,19 @@ class YacCli(
     }
 
     private fun unusableOutput(result: YacProcessResult): YacCliException =
-        YacCliException("yac context returned no usable JSON (exit ${result.exitCode}): ${result.summary}")
+        YacCliException("yac context returned no usable JSON (exit ${result.exitCode}): ${firstLine(result.summary)}")
+
+    private fun firstLine(text: String): String {
+        val cut = text.lineSequence().first().take(SUMMARY_LIMIT)
+
+        return if (cut.length < text.length) cut + ELLIPSIS else cut
+    }
 
     companion object {
-        const val CONTEXT_TIMEOUT_MILLIS = 10_000L
-        const val SUPPORTED_SCHEMA = 1
+        internal const val CONTEXT_TIMEOUT_MILLIS = 10_000L
+        private const val SUPPORTED_SCHEMA = 1
+        private const val SUMMARY_LIMIT = 200
+        private const val ELLIPSIS = "…"
         private const val POLL_MILLIS = 50L
         private const val SCHEMA_KEY = "schema"
         private const val STDIN_OPTION = "--stdin"
@@ -97,6 +110,7 @@ class YacCli(
         private const val XDEBUG_MODE = "XDEBUG_MODE"
         private const val XDEBUG_OFF = "off"
         private const val MISSING_STDIN_OPTION = "The \"--stdin\" option does not exist."
+        private val PHP_OPTIONS = listOf("-d", "display_errors=stderr")
         private val JSON = Json { ignoreUnknownKeys = true }
         private val LOG = logger<YacCli>()
     }

@@ -6,8 +6,12 @@ import org.junit.Assert
 import java.util.concurrent.CancellationException
 
 class YacCliTest : BasePlatformTestCase() {
+    private companion object {
+        val BIG_BUFFER = "x".repeat(300_000)
+    }
+
     private fun cli(contextTimeoutMillis: Long = YacCli.CONTEXT_TIMEOUT_MILLIS) =
-        YacCli("/bin/sh", TemporaryTree.FAKE_YAC.toString(), TemporaryTree.FAKE_YAC.parent, contextTimeoutMillis)
+        YacCli(TemporaryTree.fakePhp().toString(), TemporaryTree.FAKE_YAC.toString(), TemporaryTree.FAKE_YAC.parent, contextTimeoutMillis)
 
     fun testContextSendsTheBufferOnStdinAndParsesNotes() {
         val result = cli().context("ok.php", "Unsaved text")
@@ -21,6 +25,12 @@ class YacCliTest : BasePlatformTestCase() {
             result,
         )
         assertTrue(result.files[0].annotations[0].isResolved)
+    }
+
+    fun testBufferWithQuotesBackslashesAndNewlinesRoundTrips() {
+        val buffer = "say \"hi\" \\ now\nnext \\n line"
+
+        assertEquals(buffer, cli().context("ok.php", buffer).files[0].annotations[0].comment)
     }
 
     fun testOldYacWithoutStdinIsReported() {
@@ -45,6 +55,37 @@ class YacCliTest : BasePlatformTestCase() {
         val exception = Assert.assertThrows(YacCliException::class.java) { cli().context("broken.php", "") }
 
         assertEquals("yac context returned no usable JSON (exit 2): boom", exception.message)
+    }
+
+    fun testUnusableOutputIsCutToItsFirstLineAndTwoHundredCharacters() {
+        val long = Assert.assertThrows(YacCliException::class.java) { cli().context("long.php", "") }
+        val multiline = Assert.assertThrows(YacCliException::class.java) { cli().context("multiline.php", "") }
+
+        assertEquals("yac context returned no usable JSON (exit 255): Fatal: " + "0".repeat(193) + "…", long.message)
+        assertEquals("yac context returned no usable JSON (exit 2): first…", multiline.message)
+    }
+
+    fun testPhpReceivesDisplayErrorsOnStderr() {
+        assertEquals("display_errors=stderr", cli().run(listOf("context", "ini.php")).stdout)
+    }
+
+    fun testContextTimeoutIsReportedWhileTheBufferIsNeverRead() {
+        val started = System.nanoTime()
+
+        val exception = Assert.assertThrows(YacCliException::class.java) { cli(300).context("deaf.php", BIG_BUFFER) }
+
+        assertEquals("yac context did not finish within 300 ms.", exception.message)
+        assertTrue((System.nanoTime() - started) / 1_000_000 < 3_000)
+    }
+
+    fun testCancellationDuringAStdinWriteThatNeverDrains() {
+        val started = System.nanoTime()
+
+        Assert.assertThrows(CancellationException::class.java) {
+            cli().run(listOf("context", "deaf.php"), stdin = BIG_BUFFER, checkCanceled = { throw CancellationException() })
+        }
+
+        assertTrue((System.nanoTime() - started) / 1_000_000 < 3_000)
     }
 
     fun testContextTimeoutIsReported() {

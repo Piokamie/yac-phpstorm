@@ -25,8 +25,10 @@ class YacEnvironment private constructor(
 
     companion object {
         const val YAC_DIRECTORY = ".yac"
+        const val CACHE_DIRECTORY = ".cache"
+        const val SIDECAR_EXTENSION = ".yac"
         const val CURRENT_DIRECTORY = "."
-        const val DEFAULT_PHP = "php"
+        private const val DEFAULT_PHP = "php"
         private const val GIT_MARKER = ".git"
         private const val VENDOR_YAC = "vendor/bin/yac"
         private const val REPOSITORY_YAC = "bin/yac"
@@ -39,17 +41,17 @@ class YacEnvironment private constructor(
             val root = rootOf(file) ?: return null
             val settings = project.service<YacSettings>()
             val yac = yacOf(file, root, settings.yacPath)
-            val interpreter = if (settings.phpPath.isEmpty()) PhpInterpreterPath.of(project) else PhpInterpreterPath(null, false)
+            val interpreter = if (settings.phpPath.isEmpty()) PhpInterpreterPath.of(project) else PhpInterpreterPath.NONE
             val cli = yac?.let { YacCli(php(settings.phpPath, interpreter.localPath), it.path, root.toNioPath()) }
 
             return YacEnvironment(root, cli, interpreter.isRemote)
         }
 
-        fun rootOf(file: VirtualFile): VirtualFile? = directoriesUpFrom(file).firstOrNull { directory ->
+        internal fun rootOf(file: VirtualFile): VirtualFile? = directoriesUpFrom(file).firstOrNull { directory ->
             true == directory.findChild(YAC_DIRECTORY)?.isDirectory || null != directory.findChild(GIT_MARKER)
         }
 
-        fun yacOf(file: VirtualFile, root: VirtualFile, configured: String): VirtualFile? {
+        internal fun yacOf(file: VirtualFile, root: VirtualFile, configured: String): VirtualFile? {
             val found = if (configured.isNotEmpty()) {
                 if (FileUtil.isAbsolute(configured)) LocalFileSystem.getInstance().findFileByPath(configured) else root.findFileByRelativePath(configured)
             } else {
@@ -60,7 +62,7 @@ class YacEnvironment private constructor(
             return found?.takeUnless { it.isDirectory }
         }
 
-        fun php(configured: String, interpreterPath: String?): String = configured.ifEmpty { interpreterPath ?: DEFAULT_PHP }
+        internal fun php(configured: String, interpreterPath: String?): String = configured.ifEmpty { interpreterPath ?: DEFAULT_PHP }
 
         private fun directoriesUpFrom(file: VirtualFile): Sequence<VirtualFile> =
             generateSequence(if (file.isDirectory) file else file.parent) { it.parent }

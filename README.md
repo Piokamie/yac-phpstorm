@@ -6,11 +6,11 @@ YAC keeps comments written by coding agents out of your source: they live in `.y
 
 ## What you get
 
-- **Gutter icon** on every line with a note. Blue means resolved. Red means the note is not resolved: orphaned, ambiguous, invalid anchor, or missing or unparseable source; those have no line and are shown on line 1. Hover for ID, scope, the status of unresolved notes, the full note and any problems.
+- **Gutter icon** on every line with a note. Blue means every note on that line is resolved; red means at least one is not (orphaned, ambiguous, invalid anchor, or missing or unparseable source). Unresolved notes have no line and are shown on line 1. Hover for ID, scope, the status of unresolved notes, the full note and any problems.
 - **Note block** above the statement: the note icon, a light blue tint and the note text (at most 3 lines). Turn it off in the settings if you only want icons.
-- **Live**: notes are resolved against the unsaved editor text 500 ms after you stop typing, when a file opens, and when `.yac/` sidecars change on disk (an agent ran `yac add`, you switched branches). While the edited file does not parse, the notes on screen stay as they are.
+- **Live**: notes are resolved against the unsaved editor text 500 ms after you stop typing, when a file opens, and when `.yac/` sidecars change on disk (an agent ran `yac add`, you switched branches). While the edited file does not parse, the notes on screen stay as they are. Only main editors show notes; previews and diffs do not. Renaming or moving a file refreshes its notes.
 - **Gutter menu** (click the icon): Promote to PHPDoc, Remove Note. A line with several notes gets one submenu per note.
-- **`YAC` context menu** in the editor and the Project view: Extract Inline Notes, Inject Notes as Inline Comments, Yeet Notes… Works on files, directories and the project root, and only appears where a yac binary is found.
+- **`YAC` context menu** in the editor and the Project view: Extract Inline Notes, Inject Notes as Inline Comments, Yeet Notes… Works on files, directories and the project root, and only appears when a yac binary is found and the whole selection is under one yac root.
 
 Each action saves your documents, runs the CLI in the background (cancel it from the progress bar; there is no timeout), reloads the changed files and `.yac/` from disk and reports yac's own output: an info notification on success, a warning when yac refused (exit 1), an error when it could not run (exit 2).
 
@@ -41,7 +41,7 @@ Then **Settings | Plugins | ⚙ | Install Plugin from Disk…** and pick `build/
 
 ## Settings
 
-**Settings | Tools | YAC** (stored per machine, not in shared project files):
+**Settings | Tools | YAC** (stored per project in your workspace file, not in shared project files):
 
 | Setting | Default |
 |---|---|

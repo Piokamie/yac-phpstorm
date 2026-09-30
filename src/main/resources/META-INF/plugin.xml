@@ -11,7 +11,7 @@
     <depends>com.jetbrains.php</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <notificationGroup id="YAC" displayType="BALLOON"/>
+        <notificationGroup id="dev.icebear.yac" displayType="BALLOON" bundle="messages.YacBundle" key="notification.group.yac"/>
         <editorFactoryListener implementation="dev.icebear.yac.notes.YacEditorListener"/>
         <editorFactoryDocumentListener implementation="dev.icebear.yac.notes.YacDocumentListener"/>
         <projectConfigurable parentId="tools" instance="dev.icebear.yac.settings.YacConfigurable" id="dev.icebear.yac.settings" displayName="YAC"
@@ -23,7 +23,7 @@
     </projectListeners>
 
     <actions>
-        <group id="Yac.FileActions" text="YAC" popup="true" icon="/icons/note.svg">
+        <group id="Yac.FileActions" class="dev.icebear.yac.actions.YacFileActionGroup" text="YAC" popup="true" icon="/icons/note.svg">
             <action id="Yac.ExtractFile" class="dev.icebear.yac.actions.ExtractFileAction" text="Extract Inline Notes"
                     description="Move inline @yac comments of the selection into .yac/ sidecars"/>
             <action id="Yac.InjectFile" class="dev.icebear.yac.actions.InjectFileAction" text="Inject Notes as Inline Comments"

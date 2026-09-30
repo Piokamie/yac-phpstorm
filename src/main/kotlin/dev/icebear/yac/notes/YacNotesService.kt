@@ -9,10 +9,15 @@ import com.intellij.openapi.components.service
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorFactory
+import com.intellij.openapi.editor.EditorKind
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Key
+import com.intellij.openapi.vfs.VfsUtilCore
+import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.openapi.vfs.VirtualFileVisitor
 import dev.icebear.yac.YacEnvironment
+import dev.icebear.yac.YacMessages
 import dev.icebear.yac.YacNotifier
 import dev.icebear.yac.cli.Note
 import dev.icebear.yac.cli.YacCliException
@@ -32,6 +37,8 @@ import java.util.concurrent.ConcurrentHashMap
 @Service(Service.Level.PROJECT)
 class YacNotesService(private val project: Project, private val scope: CoroutineScope) {
     private val jobs = ConcurrentHashMap<Document, Job>()
+    private val loadedRoots = ConcurrentHashMap.newKeySet<String>()
+    private val notesKey = Key.create<List<Note>>(NOTES_KEY_PREFIX + project.locationHash)
 
     fun scheduleRefresh(document: Document, delayMillis: Long = DEBOUNCE_MILLIS): Job {
         val job = scope.launch {
@@ -45,21 +52,36 @@ class YacNotesService(private val project: Project, private val scope: Coroutine
     }
 
     fun showCached(editor: Editor) {
-        editor.document.getUserData(NOTES)?.let { NotesPresenter.render(editor, it, shouldShowInlays()) }
+        editor.document.getUserData(notesKey)?.let { NotesPresenter.render(editor, it, shouldShowInlays()) }
     }
 
     fun redrawOpenEditors() {
         openEditors().forEach { showCached(it) }
     }
 
-    fun refreshOpenEditors(delayMillis: Long = 0) {
+    fun refreshOpenEditors(delayMillis: Long = IMMEDIATELY) {
         openEditors().map { it.document }.distinct().forEach { scheduleRefresh(it, delayMillis) }
     }
 
-    private fun openEditors(): List<Editor> = EditorFactory.getInstance().allEditors.filter { project == it.project }
+    fun refreshFile(file: VirtualFile) {
+        FileDocumentManager.getInstance().getCachedDocument(file)
+            ?.takeIf { mainEditors(it).isNotEmpty() }
+            ?.let { scheduleRefresh(it, IMMEDIATELY) }
+    }
+
+    private fun openEditors(): List<Editor> = EditorFactory.getInstance().allEditors.filter { project == it.project && EditorKind.MAIN_EDITOR == it.editorKind }
+
+    private fun mainEditors(document: Document): List<Editor> =
+        EditorFactory.getInstance().getEditors(document, project).filter { EditorKind.MAIN_EDITOR == it.editorKind }
 
     private suspend fun refresh(document: Document) {
-        val request = readAction { request(document) } ?: return
+        val request = readAction { request(document) }
+        if (null == request) {
+            clear(document)
+
+            return
+        }
+
         val notes = withContext(Dispatchers.IO) { resolve(request) }
 
         withContext(Dispatchers.EDT) {
@@ -67,15 +89,26 @@ class YacNotesService(private val project: Project, private val scope: Coroutine
                 return@withContext
             }
 
-            val shown = NotesSelection.toShow(notes, document.getUserData(NOTES)) ?: return@withContext
-            document.putUserData(NOTES, shown)
-            EditorFactory.getInstance().getEditors(document, project).forEach { NotesPresenter.render(it, shown, shouldShowInlays()) }
+            val shown = NotesSelection.toShow(notes, document.getUserData(notesKey)) ?: return@withContext
+            document.putUserData(notesKey, shown)
+            mainEditors(document).forEach { NotesPresenter.render(it, shown, shouldShowInlays()) }
+        }
+    }
+
+    private suspend fun clear(document: Document) {
+        if (null == document.getUserData(notesKey)) {
+            return
+        }
+
+        withContext(Dispatchers.EDT) {
+            document.putUserData(notesKey, null)
+            mainEditors(document).forEach { NotesPresenter.clear(it) }
         }
     }
 
     private fun request(document: Document): RefreshRequest? {
         val file = FileDocumentManager.getInstance().getFile(document) ?: return null
-        if (PHP_EXTENSION != file.extension || !file.isInLocalFileSystem) {
+        if (!PHP_EXTENSION.equals(file.extension, ignoreCase = true)) {
             return null
         }
 
@@ -87,16 +120,17 @@ class YacNotesService(private val project: Project, private val scope: Coroutine
     private suspend fun resolve(request: RefreshRequest): List<Note> {
         val environment = request.environment ?: return emptyList()
         val source = request.source ?: return emptyList()
+        loadSidecars(environment)
         val failureKey = FAILURE_KEY + environment.root.path
         val cli = environment.cli
         if (null == cli) {
-            notifier().report(failureKey, listOf(NO_YAC), NotificationType.WARNING)
+            notifier().report(failureKey, listOf(YacMessages.NO_YAC), NotificationType.WARNING)
 
             return emptyList()
         }
 
         if (environment.isRemoteInterpreterSkipped) {
-            notifier().notifyOnce(REMOTE_INTERPRETER, NotificationType.INFORMATION)
+            notifier().notifyOnce(YacMessages.REMOTE_INTERPRETER, NotificationType.INFORMATION)
         }
 
         val job = currentCoroutineContext().job
@@ -110,8 +144,14 @@ class YacNotesService(private val project: Project, private val scope: Coroutine
             notifier().report(failureKey, listOf(exception.message.orEmpty()), NotificationType.WARNING)
             emptyList()
         } catch (exception: ExecutionException) {
-            notifier().report(failureKey, listOf(CANNOT_RUN + (exception.message ?: exception.javaClass.simpleName)), NotificationType.WARNING)
+            notifier().report(failureKey, listOf(YacMessages.CANNOT_RUN + (exception.message ?: exception.javaClass.simpleName)), NotificationType.WARNING)
             emptyList()
+        }
+    }
+
+    private fun loadSidecars(environment: YacEnvironment) {
+        if (loadedRoots.add(environment.root.path)) {
+            environment.yacDirectory?.let { VfsUtilCore.visitChildrenRecursively(it, object : VirtualFileVisitor<Unit>() {}) }
         }
     }
 
@@ -123,13 +163,11 @@ class YacNotesService(private val project: Project, private val scope: Coroutine
 
     companion object {
         const val DEBOUNCE_MILLIS = 500L
-        const val NO_YAC = "No yac binary found; run composer require --dev icebear/yac or set the path in Settings | Tools | YAC."
-        const val REMOTE_INTERPRETER = "The project PHP interpreter is remote; yac runs with php from the PATH. Set a local PHP executable in Settings | Tools | YAC."
-        const val CANNOT_RUN = "Cannot run yac: "
+        const val IMMEDIATELY = 0L
         private const val PHP_EXTENSION = "php"
         private const val FAILURE_KEY = "failure:"
         private const val WARNINGS_KEY = "warnings:"
         private const val PATH_SEPARATOR = "/"
-        private val NOTES = Key.create<List<Note>>("yac.notes")
+        private const val NOTES_KEY_PREFIX = "yac.notes."
     }
 }

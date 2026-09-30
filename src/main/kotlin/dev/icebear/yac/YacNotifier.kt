@@ -12,6 +12,9 @@ class YacNotifier(private val project: Project) {
     private val shownOnce = ConcurrentHashMap.newKeySet<String>()
     private val reported = ConcurrentHashMap<String, Set<String>>()
 
+    internal val reportedKeyCount: Int
+        get() = reported.size
+
     fun notify(message: String, type: NotificationType) {
         NotificationGroupManager.getInstance().getNotificationGroup(GROUP_ID)
             .createNotification(TITLE, StringUtil.escapeXmlEntities(message).replace("\n", LINE_BREAK), type)
@@ -25,7 +28,7 @@ class YacNotifier(private val project: Project) {
     }
 
     fun report(key: String, messages: List<String>, type: NotificationType) {
-        val previous = reported.put(key, messages.toSet()).orEmpty()
+        val previous = (if (messages.isEmpty()) reported.remove(key) else reported.put(key, messages.toSet())).orEmpty()
         messages.distinct().filterNot { it in previous }.forEach { notify(it, type) }
     }
 
@@ -35,7 +38,7 @@ class YacNotifier(private val project: Project) {
     }
 
     companion object {
-        const val GROUP_ID = "YAC"
+        const val GROUP_ID = "dev.icebear.yac"
         private const val TITLE = "YAC"
         private const val LINE_BREAK = "<br>"
     }

@@ -15,7 +15,7 @@ import java.awt.Rectangle
 import java.awt.RenderingHints
 
 class NoteInlayRenderer(val note: Note, private val indentX: Int) : EditorCustomElementRenderer {
-    val lines: List<String> = NoteText.displayLines(note.comment)
+    val lines: List<String> = NoteText.displayLines(note)
 
     override fun calcWidthInPixels(inlay: Inlay<*>): Int {
         val metrics = inlay.editor.contentComponent.getFontMetrics(inlay.editor.colorsScheme.getFont(EditorFontType.ITALIC))
@@ -54,12 +54,12 @@ class NoteInlayRenderer(val note: Note, private val indentX: Int) : EditorCustom
 
     private fun textOffset(): Int = JBUI.scale(PADDING) + YacIcons.NOTE.iconWidth + JBUI.scale(ICON_GAP)
 
-    private companion object {
-        const val PADDING = 6
-        const val ICON_GAP = 6
-        const val ARC = 6
-        const val STRIPE_WIDTH = 2
-        val BACKGROUND = JBColor(Color(0x35, 0x74, 0xF0, 0x14), Color(0x54, 0x8A, 0xF7, 0x1F))
-        val STRIPE = JBColor(Color(0x35, 0x74, 0xF0, 0x99), Color(0x54, 0x8A, 0xF7, 0x99))
+    companion object {
+        private const val PADDING = 6
+        private const val ICON_GAP = 6
+        private const val ARC = 6
+        private const val STRIPE_WIDTH = 2
+        private val BACKGROUND = JBColor(Color(0x35, 0x74, 0xF0, 0x14), Color(0x54, 0x8A, 0xF7, 0x1F))
+        private val STRIPE = JBColor(Color(0x35, 0x74, 0xF0, 0x99), Color(0x54, 0x8A, 0xF7, 0x99))
     }
 }

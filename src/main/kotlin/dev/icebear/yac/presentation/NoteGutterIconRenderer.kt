@@ -21,6 +21,8 @@ class NoteGutterIconRenderer(val notes: List<Note>, val file: VirtualFile?) : Gu
 
     override fun getTooltipText(): String = notes.joinToString(SEPARATOR, HTML_START, HTML_END) { tooltip(it) }
 
+    override fun getAccessibleName(): String = accessibleName(notes)
+
     override fun getAlignment(): Alignment = Alignment.LEFT
 
     override fun getPopupMenuActions(): ActionGroup = DefaultActionGroup().apply {
@@ -29,7 +31,7 @@ class NoteGutterIconRenderer(val notes: List<Note>, val file: VirtualFile?) : Gu
         } else {
             notes.forEach { note ->
                 add(DefaultActionGroup(noteActions(note)).apply {
-                    templatePresentation.setText(NoteText.label(note.comment), false)
+                    templatePresentation.setText(NoteText.label(note), false)
                     isPopup = true
                 })
             }
@@ -38,10 +40,14 @@ class NoteGutterIconRenderer(val notes: List<Note>, val file: VirtualFile?) : Gu
 
     override fun getClickAction(): AnAction = object : DumbAwareAction() {
         override fun actionPerformed(e: AnActionEvent) {
-            val mouseEvent = e.inputEvent as? MouseEvent ?: return
-            JBPopupFactory.getInstance()
+            val popup = JBPopupFactory.getInstance()
                 .createActionGroupPopup(null, popupMenuActions, e.dataContext, JBPopupFactory.ActionSelectionAid.SPEEDSEARCH, false)
-                .show(RelativePoint(mouseEvent))
+            val mouseEvent = e.inputEvent as? MouseEvent
+            if (null == mouseEvent) {
+                popup.showInBestPositionFor(e.dataContext)
+            } else {
+                popup.show(RelativePoint(mouseEvent))
+            }
         }
     }
 
@@ -52,7 +58,7 @@ class NoteGutterIconRenderer(val notes: List<Note>, val file: VirtualFile?) : Gu
     override fun hashCode(): Int = notes.hashCode()
 
     private fun tooltip(note: Note): String {
-        val heading = listOfNotNull(note.id, note.scope, note.status.takeUnless { note.isResolved }?.replace('_', ' '))
+        val heading = listOfNotNull(note.id, note.scope, note.status.takeUnless { note.isResolved }?.replace(STATUS_SEPARATOR, STATUS_SPACE))
             .joinToString(HEADING_SEPARATOR) { StringUtil.escapeXmlEntities(it) }
         val body = StringUtil.escapeXmlEntities(note.comment).replace("\n", LINE_BREAK)
         val problems = note.problems.joinToString("") { LINE_BREAK + StringUtil.escapeXmlEntities(it) }
@@ -60,11 +66,26 @@ class NoteGutterIconRenderer(val notes: List<Note>, val file: VirtualFile?) : Gu
         return "<b>$heading</b>$LINE_BREAK$body$problems"
     }
 
-    private companion object {
-        const val HTML_START = "<html>"
-        const val HTML_END = "</html>"
-        const val SEPARATOR = "<hr>"
-        const val HEADING_SEPARATOR = " · "
-        const val LINE_BREAK = "<br>"
+    companion object {
+        private const val HTML_START = "<html>"
+        private const val HTML_END = "</html>"
+        private const val SEPARATOR = "<hr>"
+        private const val HEADING_SEPARATOR = " · "
+        private const val LINE_BREAK = "<br>"
+        private const val STATUS_SEPARATOR = '_'
+        private const val STATUS_SPACE = ' '
+        private const val SINGLE_NOTE = "YAC note: "
+        private const val SINGLE_PROBLEM = "YAC note with a problem: "
+        private const val SEVERAL_NOTES = "YAC notes"
+        private const val SEVERAL_PROBLEMS = "YAC notes with problems"
+
+        internal fun accessibleName(notes: List<Note>): String {
+            val hasProblem = notes.any { !it.isResolved }
+            if (1 == notes.size) {
+                return (if (hasProblem) SINGLE_PROBLEM else SINGLE_NOTE) + NoteText.label(notes[0])
+            }
+
+            return "${if (hasProblem) SEVERAL_PROBLEMS else SEVERAL_NOTES} (${notes.size})"
+        }
     }
 }

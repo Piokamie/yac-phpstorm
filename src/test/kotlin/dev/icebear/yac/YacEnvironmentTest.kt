@@ -42,11 +42,12 @@ class YacEnvironmentTest : YacTestCase() {
 
     fun testSourcesAreRelativeToTheRoot() {
         val tree = TemporaryTree.create().directory("p/.yac").fakeYac("p/vendor/bin/yac").file("p/src/A.php").file("outside.php")
+        project.service<YacSettings>().state.phpPath = "/opt/php/bin/php"
         val environment = YacEnvironment.of(project, tree.find("p/src/A.php"))!!
 
         assertEquals(tree.find("p"), environment.root)
         assertTrue(environment.isInitialized)
-        assertNotNull(environment.cli)
+        assertEquals("/opt/php/bin/php" to tree.find("p/vendor/bin/yac").path, environment.cli!!.let { it.php to it.yac })
         assertEquals(listOf(".", "src", "src/A.php", null), listOf(tree.find("p"), tree.find("p/src"), tree.find("p/src/A.php"), tree.find("outside.php")).map { environment.sourceOf(it) })
     }
 

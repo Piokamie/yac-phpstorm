@@ -5,10 +5,12 @@ import com.jetbrains.php.config.PhpProjectConfigurationFacade
 
 data class PhpInterpreterPath(val localPath: String?, val isRemote: Boolean) {
     companion object {
-        fun of(project: Project): PhpInterpreterPath {
-            val interpreter = PhpProjectConfigurationFacade.getInstance(project).interpreter ?: return PhpInterpreterPath(null, false)
+        val NONE = PhpInterpreterPath(localPath = null, isRemote = false)
 
-            return if (interpreter.isRemote) PhpInterpreterPath(null, true) else PhpInterpreterPath(interpreter.pathToPhpExecutable, false)
+        fun of(project: Project): PhpInterpreterPath {
+            val interpreter = PhpProjectConfigurationFacade.getInstance(project).interpreter ?: return NONE
+
+            return if (interpreter.isRemote) PhpInterpreterPath(localPath = null, isRemote = true) else PhpInterpreterPath(localPath = interpreter.pathToPhpExecutable, isRemote = false)
         }
     }
 }

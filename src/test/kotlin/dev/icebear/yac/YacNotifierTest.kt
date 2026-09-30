@@ -18,6 +18,17 @@ class YacNotifierTest : YacTestCase() {
         assertEquals(listOf("One", "Two", "Two", "One", "Two"), received.map { it.content })
     }
 
+    fun testReportForgetsAKeyOnceItHasNoMessages() {
+        val notifier = project.service<YacNotifier>()
+
+        notifier.report("a", listOf("One"), NotificationType.WARNING)
+        notifier.report("b", listOf("One"), NotificationType.WARNING)
+        assertEquals(2, notifier.reportedKeyCount)
+
+        notifier.report("a", emptyList(), NotificationType.WARNING)
+        assertEquals(1, notifier.reportedKeyCount)
+    }
+
     fun testNotifyOnceUntilResetAndEscaping() {
         val received = collectNotifications()
         val notifier = project.service<YacNotifier>()

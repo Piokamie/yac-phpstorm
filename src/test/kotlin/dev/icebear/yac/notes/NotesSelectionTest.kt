@@ -15,11 +15,21 @@ class NotesSelectionTest {
     }
 
     @Test
-    fun showsFreshNotesOtherwise() {
-        val fresh = listOf(note("A", NoteStatus.UNPARSEABLE_SOURCE))
-        val parsed = listOf(note("A", "orphaned"))
+    fun keepsWhatIsShownWhenOnlySomeNotesReportAnUnparseableSource() {
+        val mixed = listOf(note("A", "invalid_anchor"), note("B", NoteStatus.UNPARSEABLE_SOURCE))
 
-        assertEquals(fresh, NotesSelection.toShow(fresh, null))
+        assertNull(NotesSelection.toShow(mixed, listOf(note("A", NoteStatus.RESOLVED))))
+        assertNull(NotesSelection.toShow(mixed.reversed(), listOf(note("A", NoteStatus.RESOLVED))))
+    }
+
+    @Test
+    fun showsFreshNotesOtherwise() {
+        val unparseable = listOf(note("A", NoteStatus.UNPARSEABLE_SOURCE))
+        val mixed = listOf(note("A", "invalid_anchor"), note("B", NoteStatus.UNPARSEABLE_SOURCE))
+        val parsed = listOf(note("A", "orphaned"), note("B", "invalid_anchor"))
+
+        assertEquals(unparseable, NotesSelection.toShow(unparseable, null))
+        assertEquals(mixed, NotesSelection.toShow(mixed, null))
         assertEquals(parsed, NotesSelection.toShow(parsed, listOf(note("A", NoteStatus.RESOLVED))))
         assertEquals(emptyList<Note>(), NotesSelection.toShow(emptyList(), listOf(note("A", NoteStatus.RESOLVED))))
     }

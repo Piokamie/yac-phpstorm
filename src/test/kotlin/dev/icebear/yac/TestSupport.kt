@@ -13,6 +13,15 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 
+private const val FAKE_PHP_SCRIPT = """#!/bin/sh
+if [ "${'$'}1" = "-d" ]; then
+  YAC_FAKE_PHP_OPTION="${'$'}2"
+  export YAC_FAKE_PHP_OPTION
+  shift 2
+fi
+exec /bin/sh "${'$'}@"
+"""
+
 class TemporaryTree(val path: Path) {
     fun file(relativePath: String, contents: String = ""): TemporaryTree = apply {
         val file = path.resolve(relativePath)
@@ -33,6 +42,11 @@ class TemporaryTree(val path: Path) {
 
     companion object {
         val FAKE_YAC: Path = Paths.get(TemporaryTree::class.java.getResource("/fake-yac.sh")!!.toURI())
+
+        fun fakePhp(): Path = FileUtil.createTempFile("fake-php", ".sh", true).toPath().also {
+            Files.writeString(it, FAKE_PHP_SCRIPT)
+            it.toFile().setExecutable(true)
+        }
 
         fun create(): TemporaryTree = TemporaryTree(FileUtil.createTempDirectory("yac", null, true).toPath())
     }
@@ -60,6 +74,6 @@ abstract class YacTestCase : BasePlatformTestCase() {
     }
 
     protected fun useFakePhp() {
-        project.service<YacSettings>().state.phpPath = "/bin/sh"
+        project.service<YacSettings>().state.phpPath = TemporaryTree.fakePhp().toString()
     }
 }

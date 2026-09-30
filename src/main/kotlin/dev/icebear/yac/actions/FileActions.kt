@@ -3,6 +3,7 @@ package dev.icebear.yac.actions
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
+import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
@@ -32,7 +33,7 @@ abstract class FileCommandAction(private val command: String, private val progre
     class Target(val environment: YacEnvironment, val files: List<VirtualFile>, val sources: List<String>)
 
     companion object {
-        fun target(project: Project, files: List<VirtualFile>): Target? {
+        internal fun target(project: Project, files: List<VirtualFile>): Target? {
             if (files.isEmpty()) {
                 return null
             }
@@ -46,7 +47,7 @@ abstract class FileCommandAction(private val command: String, private val progre
             return Target(environment, files, files.map { environment.sourceOf(it) ?: return null })
         }
 
-        private fun target(e: AnActionEvent): Target? {
+        internal fun target(e: AnActionEvent): Target? {
             val project = e.project ?: return null
 
             return target(project, e.getData(CommonDataKeys.VIRTUAL_FILE_ARRAY).orEmpty().toList())
@@ -66,11 +67,19 @@ class YeetFileAction : FileCommandAction(YacCommands.YEET, "Deleting YAC notes")
         private const val TITLE = "Yeet YAC Notes"
         private const val MAX_LISTED = 5
 
-        fun question(sources: List<String>, rootName: String): String {
+        internal fun question(sources: List<String>, rootName: String): String {
             val names = sources.map { if (YacEnvironment.CURRENT_DIRECTORY == it) "the whole project ($rootName)" else it }
             val listed = names.take(MAX_LISTED) + if (names.size > MAX_LISTED) listOf("and ${names.size - MAX_LISTED} more") else emptyList()
 
             return "Delete all YAC notes of:\n\n${listed.joinToString("\n")}\n\nThe PHP source is not touched."
         }
+    }
+}
+
+class YacFileActionGroup : DefaultActionGroup() {
+    override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
+
+    override fun update(e: AnActionEvent) {
+        e.presentation.isEnabledAndVisible = null != FileCommandAction.target(e)
     }
 }

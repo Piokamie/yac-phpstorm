@@ -1,11 +1,11 @@
 package dev.icebear.yac.presentation
 
 import com.intellij.openapi.editor.Editor
-import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import dev.icebear.yac.YacTestCase
 import dev.icebear.yac.cli.Note
 import dev.icebear.yac.cli.NoteStatus
 
-class NotesPresenterTest : BasePlatformTestCase() {
+class NotesPresenterTest : YacTestCase() {
     private fun editor(): Editor {
         myFixture.configureByText("Foo.txt", "<?php\n\nfunction a()\n{\n    foo();\n    bar();\n}\n")
 
@@ -79,6 +79,41 @@ class NotesPresenterTest : BasePlatformTestCase() {
         assertEquals(
             listOf("A first line that is far too long to sho…", "Use _mnemonic_free labels."),
             several.popupMenuActions.getChildren(null).map { it.templatePresentation.text },
+        )
+    }
+
+    fun testBlankCommentsShowTheNoteIdInBlocksAndMenus() {
+        val editor = editor()
+
+        NotesPresenter.render(editor, listOf(note("A", 5, comment = " "), note("B", 6)), true)
+
+        assertEquals(
+            listOf(listOf("A"), listOf("Note B.")),
+            editor.inlayModel.getBlockElementsInRange(0, editor.document.textLength, NoteInlayRenderer::class.java).map { it.renderer.lines },
+        )
+        assertEquals(
+            listOf("A", "Note B."),
+            NoteGutterIconRenderer(listOf(note("A", 1, comment = ""), note("B", 1)), null).popupMenuActions.getChildren(null).map { it.templatePresentation.text },
+        )
+    }
+
+    fun testAccessibleNamesArePlainText() {
+        val resolved = note("A", 1, comment = "Use <b> here.\nSecond.")
+        val orphaned = note("O", null, "orphaned")
+
+        assertEquals(
+            listOf(
+                "YAC note: Use <b> here.",
+                "YAC note with a problem: Note O.",
+                "YAC notes (2)",
+                "YAC notes with problems (2)",
+            ),
+            listOf(
+                NoteGutterIconRenderer(listOf(resolved), null),
+                NoteGutterIconRenderer(listOf(orphaned), null),
+                NoteGutterIconRenderer(listOf(resolved, note("B", 1)), null),
+                NoteGutterIconRenderer(listOf(resolved, orphaned), null),
+            ).map { it.accessibleName },
         )
     }
 
