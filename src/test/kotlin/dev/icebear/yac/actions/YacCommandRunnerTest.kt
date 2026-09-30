@@ -1,35 +1,55 @@
 package dev.icebear.yac.actions
 
-import com.intellij.notification.Notification
 import com.intellij.notification.NotificationType
-import com.intellij.notification.Notifications
-import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.fileEditor.FileDocumentManager
+import com.intellij.testFramework.PlatformTestUtil
+import dev.icebear.yac.TemporaryTree
+import dev.icebear.yac.YacTestCase
+import dev.icebear.yac.YacEnvironment
 import dev.icebear.yac.cli.YacProcessResult
+import dev.icebear.yac.notes.YacNotesService
+import java.nio.file.Files
 
-class YacCommandRunnerTest : BasePlatformTestCase() {
-    fun testExitCodesMapToNotificationTypesAndTexts() {
-        val cases = mapOf(
-            YacProcessResult(0, "Removed yac_01 from src/A.php.\n", "", false) to (NotificationType.INFORMATION to "Removed yac_01 from src/A.php."),
-            YacProcessResult(1, "", "Error: Annotation \"yac_0000\" not found.\n", false) to (NotificationType.WARNING to "Annotation \"yac_0000\" not found."),
-            YacProcessResult(2, "", "Error: Cannot write .yac: could not create directory.\n", false) to (NotificationType.ERROR to "Cannot write .yac: could not create directory."),
-            YacProcessResult(-1, "", "", true) to (NotificationType.ERROR to "yac did not finish in time."),
+class YacCommandRunnerTest : YacTestCase() {
+    fun testExitCodesMapToNotificationTypes() {
+        assertEquals(
+            listOf(NotificationType.INFORMATION, NotificationType.WARNING, NotificationType.ERROR),
+            listOf(0, 1, 2).map { YacCommandRunner.notificationType(YacProcessResult(it, "", "")) },
         )
-
-        cases.forEach { (result, expected) ->
-            assertEquals(expected, YacCommandRunner.notificationType(result) to YacCommandRunner.summary(result))
-        }
     }
 
-    fun testFinishNotifiesWithTheCliMessage() {
-        val received = mutableListOf<Notification>()
-        project.messageBus.connect(testRootDisposable).subscribe(Notifications.TOPIC, object : Notifications {
-            override fun notify(notification: Notification) {
-                received.add(notification)
-            }
-        })
+    fun testFinishNotifiesWithOutputAndErrors() {
+        val received = collectNotifications()
+        val tree = TemporaryTree.create().directory(".yac").fakeYac()
+        val environment = YacEnvironment.of(project, tree.find())!!
 
-        YacCommandRunner(project).finish(YacProcessResult(1, "", "Warning: src/A.php: skipped, its sidecar is invalid (x).\n", false), emptyList())
+        YacCommandRunner(project).finish(environment, YacProcessResult(1, "Extracted 1 note.\n", "Warning: src/A.php: skipped <x>.\n"), emptyList())
 
-        assertEquals(listOf(NotificationType.WARNING to "src/A.php: skipped, its sidecar is invalid (x)."), received.map { it.type to it.content })
+        assertEquals(listOf(NotificationType.WARNING to "Extracted 1 note.<br>src/A.php: skipped &lt;x&gt;."), received.map { it.type to it.content })
+    }
+
+    fun testRunSavesDocumentsFirstAndReportsTheResult() {
+        useFakePhp()
+        val received = collectNotifications()
+        val tree = TemporaryTree.create().directory(".yac").fakeYac().file("a.php", "<?php\n")
+        val file = tree.find("a.php")
+        val document = FileDocumentManager.getInstance().getDocument(file)!!
+        WriteCommandAction.runWriteCommandAction(project) { document.setText("<?php\nfoo();\n") }
+
+        YacCommandRunner(project).run(YacEnvironment.of(project, file)!!, "Testing", listOf("remove", "yac_01"), listOf(file))
+
+        assertEquals("<?php\nfoo();\n", Files.readString(tree.path.resolve("a.php")))
+        PlatformTestUtil.waitWithEventsDispatching("no notification", { received.isNotEmpty() }, 10)
+        assertEquals(listOf(NotificationType.WARNING to "args:remove yac_01<br>careful"), received.map { it.type to it.content })
+    }
+
+    fun testRunWithoutYacSaysSo() {
+        val received = collectNotifications()
+        val environment = YacEnvironment.of(project, TemporaryTree.create().directory(".yac").find())!!
+
+        YacCommandRunner(project).run(environment, "Testing", listOf("remove", "yac_01"), emptyList())
+
+        assertEquals(listOf(NotificationType.WARNING to YacNotesService.NO_YAC), received.map { it.type to it.content })
     }
 }

@@ -14,8 +14,13 @@
         <notificationGroup id="YAC" displayType="BALLOON"/>
         <editorFactoryListener implementation="dev.icebear.yac.notes.YacEditorListener"/>
         <editorFactoryDocumentListener implementation="dev.icebear.yac.notes.YacDocumentListener"/>
-        <projectConfigurable parentId="tools" instance="dev.icebear.yac.settings.YacConfigurable" id="dev.icebear.yac.settings" displayName="YAC"/>
+        <projectConfigurable parentId="tools" instance="dev.icebear.yac.settings.YacConfigurable" id="dev.icebear.yac.settings" displayName="YAC"
+                             nonDefaultProject="true"/>
     </extensions>
+
+    <projectListeners>
+        <listener class="dev.icebear.yac.notes.YacSidecarListener" topic="com.intellij.openapi.vfs.newvfs.BulkFileListener"/>
+    </projectListeners>
 
     <actions>
         <group id="Yac.FileActions" text="YAC" popup="true" icon="/icons/note.svg">

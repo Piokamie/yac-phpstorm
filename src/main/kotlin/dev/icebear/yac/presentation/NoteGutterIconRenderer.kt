@@ -7,15 +7,16 @@ import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.editor.markup.GutterIconRenderer
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.ui.popup.JBPopupFactory
+import com.intellij.openapi.util.text.StringUtil
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.awt.RelativePoint
 import dev.icebear.yac.actions.PromoteNoteAction
 import dev.icebear.yac.actions.RemoveNoteAction
-import java.awt.event.MouseEvent
-import com.intellij.openapi.util.text.StringUtil
 import dev.icebear.yac.cli.Note
+import java.awt.event.MouseEvent
 import javax.swing.Icon
 
-class NoteGutterIconRenderer(val notes: List<Note>) : GutterIconRenderer() {
+class NoteGutterIconRenderer(val notes: List<Note>, val file: VirtualFile?) : GutterIconRenderer() {
     override fun getIcon(): Icon = if (notes.all { it.isResolved }) YacIcons.NOTE else YacIcons.NOTE_PROBLEM
 
     override fun getTooltipText(): String = notes.joinToString(SEPARATOR, HTML_START, HTML_END) { tooltip(it) }
@@ -26,7 +27,12 @@ class NoteGutterIconRenderer(val notes: List<Note>) : GutterIconRenderer() {
         if (1 == notes.size) {
             addAll(noteActions(notes[0]))
         } else {
-            notes.forEach { note -> add(DefaultActionGroup(label(note), noteActions(note)).apply { isPopup = true }) }
+            notes.forEach { note ->
+                add(DefaultActionGroup(noteActions(note)).apply {
+                    templatePresentation.setText(NoteText.label(note.comment), false)
+                    isPopup = true
+                })
+            }
         }
     }
 
@@ -39,11 +45,9 @@ class NoteGutterIconRenderer(val notes: List<Note>) : GutterIconRenderer() {
         }
     }
 
-    private fun noteActions(note: Note): List<AnAction> = listOf(PromoteNoteAction(note), RemoveNoteAction(note))
+    private fun noteActions(note: Note): List<AnAction> = listOf(PromoteNoteAction(note, file), RemoveNoteAction(note, file))
 
-    private fun label(note: Note): String = note.comment.lineSequence().first().let { if (it.length > LABEL_LENGTH) it.take(LABEL_LENGTH) + ELLIPSIS else it }
-
-    override fun equals(other: Any?): Boolean = other is NoteGutterIconRenderer && notes == other.notes
+    override fun equals(other: Any?): Boolean = other is NoteGutterIconRenderer && notes == other.notes && file == other.file
 
     override fun hashCode(): Int = notes.hashCode()
 
@@ -62,7 +66,5 @@ class NoteGutterIconRenderer(val notes: List<Note>) : GutterIconRenderer() {
         const val SEPARATOR = "<hr>"
         const val HEADING_SEPARATOR = " · "
         const val LINE_BREAK = "<br>"
-        const val LABEL_LENGTH = 40
-        const val ELLIPSIS = "…"
     }
 }

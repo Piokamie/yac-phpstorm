@@ -13,15 +13,15 @@ class YacSettings : SimplePersistentStateComponent<YacSettings.Options>(Options(
     class Options : BaseState() {
         var yacPath by string("")
         var phpPath by string("")
-        var showInlays by property(true)
+        var shouldShowInlays by property(true)
     }
 
     val yacPath: String
-        get() = state.yacPath.orEmpty()
+        get() = state.yacPath.orEmpty().trim()
 
     val phpPath: String
-        get() = state.phpPath.orEmpty()
+        get() = state.phpPath.orEmpty().trim()
 
-    val showInlays: Boolean
-        get() = state.showInlays
+    val shouldShowInlays: Boolean
+        get() = state.shouldShowInlays
 }

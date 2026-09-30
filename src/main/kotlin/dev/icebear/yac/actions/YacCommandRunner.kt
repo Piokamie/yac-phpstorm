@@ -9,55 +9,65 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
 import dev.icebear.yac.YacEnvironment
-import dev.icebear.yac.YacNotifications
+import dev.icebear.yac.YacNotifier
 import dev.icebear.yac.cli.YacProcessResult
 import dev.icebear.yac.notes.YacNotesService
 
 class YacCommandRunner(private val project: Project) {
-    fun run(title: String, arguments: List<String>, changedFiles: List<VirtualFile>) {
-        val environment = YacEnvironment.of(project) ?: return
+    fun run(environment: YacEnvironment, title: String, arguments: List<String>, changedFiles: List<VirtualFile>) {
+        val cli = environment.cli
+        if (null == cli) {
+            notifier().notify(YacNotesService.NO_YAC, NotificationType.WARNING)
+
+            return
+        }
+
         FileDocumentManager.getInstance().saveAllDocuments()
 
-        object : Task.Backgroundable(project, title, false) {
+        object : Task.Backgroundable(project, title, true) {
             private var result: YacProcessResult? = null
 
             override fun run(indicator: ProgressIndicator) {
-                result = environment.cli.run(arguments)
+                result = cli.run(arguments, checkCanceled = indicator::checkCanceled)
             }
 
             override fun onSuccess() {
-                result?.let { finish(it, changedFiles) }
+                result?.let { finish(environment, it, changedFiles) }
+            }
+
+            override fun onCancel() {
+                refresh(environment, changedFiles)
+                notifier().notify(CANCELLED, NotificationType.WARNING)
             }
 
             override fun onThrowable(error: Throwable) {
-                YacNotifications.notify(project, "yac failed: ${error.message}", NotificationType.ERROR)
+                notifier().notify(YacNotesService.CANNOT_RUN + (error.message ?: error.javaClass.simpleName), NotificationType.ERROR)
             }
         }.queue()
     }
 
-    fun finish(result: YacProcessResult, changedFiles: List<VirtualFile>) {
-        if (changedFiles.isNotEmpty()) {
-            VfsUtil.markDirtyAndRefresh(false, true, true, *changedFiles.toTypedArray())
-        }
-
-        project.service<YacNotesService>().refreshOpenEditors()
-        YacNotifications.notify(project, summary(result), notificationType(result))
+    fun finish(environment: YacEnvironment, result: YacProcessResult, changedFiles: List<VirtualFile>) {
+        refresh(environment, changedFiles)
+        notifier().notify(result.summary, notificationType(result))
     }
 
-    companion object {
-        private const val TIMED_OUT = "yac did not finish in time."
-
-        fun notificationType(result: YacProcessResult): NotificationType = when {
-            result.isTimedOut -> NotificationType.ERROR
-            YacProcessResult.SUCCESS == result.exitCode -> NotificationType.INFORMATION
-            YacProcessResult.FAILURE == result.exitCode -> NotificationType.WARNING
-            else -> NotificationType.ERROR
+    private fun refresh(environment: YacEnvironment, changedFiles: List<VirtualFile>) {
+        val yacDirectory = environment.yacDirectory
+        VfsUtil.markDirtyAndRefresh(true, true, true, *(changedFiles + listOfNotNull(yacDirectory)).toTypedArray())
+        if (null == yacDirectory) {
+            VfsUtil.markDirtyAndRefresh(true, false, true, environment.root)
         }
+    }
 
-        fun summary(result: YacProcessResult): String = when {
-            result.isTimedOut -> TIMED_OUT
-            YacProcessResult.SUCCESS == result.exitCode -> result.stdout.trim()
-            else -> result.message
+    private fun notifier(): YacNotifier = project.service<YacNotifier>()
+
+    companion object {
+        const val CANCELLED = "yac was stopped. Files it had already written keep their changes."
+
+        fun notificationType(result: YacProcessResult): NotificationType = when (result.exitCode) {
+            YacProcessResult.SUCCESS -> NotificationType.INFORMATION
+            YacProcessResult.FAILURE -> NotificationType.WARNING
+            else -> NotificationType.ERROR
         }
     }
 }

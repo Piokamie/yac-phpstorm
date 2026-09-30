@@ -3,6 +3,7 @@ package dev.icebear.yac.presentation
 import com.intellij.openapi.editor.Editor
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.icebear.yac.cli.Note
+import dev.icebear.yac.cli.NoteStatus
 
 class NotesPresenterTest : BasePlatformTestCase() {
     private fun editor(): Editor {
@@ -11,8 +12,8 @@ class NotesPresenterTest : BasePlatformTestCase() {
         return myFixture.editor
     }
 
-    private fun note(id: String, line: Int?, status: String = Note.RESOLVED, comment: String = "Note $id.") =
-        Note(id, "src/Foo.php", line, status, "a", "foo();", comment)
+    private fun note(id: String, line: Int?, status: String = NoteStatus.RESOLVED, comment: String = "Note $id.") =
+        Note(id, line, status, "a", comment)
 
     private fun gutters(editor: Editor): Map<Int, List<String>> = editor.markupModel.allHighlighters
         .mapNotNull { highlighter -> (highlighter.gutterIconRenderer as? NoteGutterIconRenderer)?.let { editor.document.getLineNumber(highlighter.startOffset) to it } }
@@ -64,20 +65,28 @@ class NotesPresenterTest : BasePlatformTestCase() {
     }
 
     fun testTooltipEscapesHtml() {
-        val renderer = NoteGutterIconRenderer(listOf(note("A", 1, comment = "Use <b> & keep\nlines.")))
+        val renderer = NoteGutterIconRenderer(listOf(note("A", 1, comment = "Use <b> & keep\nlines.")), null)
 
         assertEquals("<html><b>A · a</b><br>Use &lt;b&gt; &amp; keep<br>lines.</html>", renderer.tooltipText)
         assertSame(YacIcons.NOTE, renderer.icon)
     }
 
     fun testGutterPopupOffersPromoteAndRemovePerNote() {
-        val single = NoteGutterIconRenderer(listOf(note("A", 1)))
-        val several = NoteGutterIconRenderer(listOf(note("A", 1, comment = "A first line that is far too long to show in a menu.\nSecond."), note("B", 1)))
+        val single = NoteGutterIconRenderer(listOf(note("A", 1)), null)
+        val several = NoteGutterIconRenderer(listOf(note("A", 1, comment = "A first line that is far too long to show in a menu.\nSecond."), note("B", 1, comment = "Use _mnemonic_free labels.")), null)
 
         assertEquals(listOf("PromoteNoteAction", "RemoveNoteAction"), single.popupMenuActions.getChildren(null).map { it.javaClass.simpleName })
         assertEquals(
-            listOf("A first line that is far too long to sho…", "Note B."),
+            listOf("A first line that is far too long to sho…", "Use _mnemonic_free labels."),
             several.popupMenuActions.getChildren(null).map { it.templatePresentation.text },
         )
+    }
+
+    fun testGutterIconsKnowTheirFile() {
+        val editor = editor()
+
+        NotesPresenter.render(editor, listOf(note("A", 1)), true)
+
+        assertEquals(listOf(myFixture.file.virtualFile), editor.markupModel.allHighlighters.mapNotNull { (it.gutterIconRenderer as? NoteGutterIconRenderer)?.file })
     }
 }

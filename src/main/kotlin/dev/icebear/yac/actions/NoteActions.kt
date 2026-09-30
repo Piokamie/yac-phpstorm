@@ -3,40 +3,56 @@ package dev.icebear.yac.actions
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.project.DumbAwareAction
-import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.vfs.VirtualFile
+import dev.icebear.yac.YacEnvironment
 import dev.icebear.yac.cli.Note
+import dev.icebear.yac.cli.YacCommands
 
-class PromoteNoteAction(private val note: Note) : DumbAwareAction("Promote to PHPDoc", "Turn this YAC note into a human PHPDoc comment above the code", null) {
+abstract class NoteAction(
+    protected val note: Note,
+    private val file: VirtualFile?,
+    text: String,
+    description: String,
+) : DumbAwareAction(text, description, null) {
+    override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
+
     override fun update(e: AnActionEvent) {
-        e.presentation.isEnabled = null != e.project && note.isResolved
+        val project = e.project
+        e.presentation.isEnabled = null != project && null != file && isApplicable() && null != YacEnvironment.of(project, file)?.cli
     }
 
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        val file = project.basePath?.let { LocalFileSystem.getInstance().findFileByPath("$it/${note.source}") }
-        YacCommandRunner(project).run("Promoting ${note.id}", listOf(PROMOTE, note.id), listOfNotNull(file))
+        val file = file ?: return
+        val environment = YacEnvironment.of(project, file) ?: return
+        YacCommandRunner(project).run(environment, progressTitle(), arguments(), changedFiles(file))
     }
 
-    override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
+    protected open fun isApplicable(): Boolean = true
 
-    private companion object {
-        const val PROMOTE = "promote"
-    }
+    protected abstract fun progressTitle(): String
+
+    protected abstract fun arguments(): List<String>
+
+    protected abstract fun changedFiles(file: VirtualFile): List<VirtualFile>
 }
 
-class RemoveNoteAction(private val note: Note) : DumbAwareAction("Remove Note", "Delete this YAC note (the PHP source is not touched)", null) {
-    override fun update(e: AnActionEvent) {
-        e.presentation.isEnabled = null != e.project
-    }
+class PromoteNoteAction(note: Note, file: VirtualFile?) :
+    NoteAction(note, file, "Promote to PHPDoc", "Turn this YAC note into a human PHPDoc comment above the code") {
+    override fun isApplicable(): Boolean = note.isResolved
 
-    override fun actionPerformed(e: AnActionEvent) {
-        val project = e.project ?: return
-        YacCommandRunner(project).run("Removing ${note.id}", listOf(REMOVE, note.id), emptyList())
-    }
+    override fun progressTitle(): String = "Promoting ${note.id}"
 
-    override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
+    override fun arguments(): List<String> = listOf(YacCommands.PROMOTE, note.id)
 
-    private companion object {
-        const val REMOVE = "remove"
-    }
+    override fun changedFiles(file: VirtualFile): List<VirtualFile> = listOf(file)
+}
+
+class RemoveNoteAction(note: Note, file: VirtualFile?) :
+    NoteAction(note, file, "Remove Note", "Delete this YAC note (the PHP source is not touched)") {
+    override fun progressTitle(): String = "Removing ${note.id}"
+
+    override fun arguments(): List<String> = listOf(YacCommands.REMOVE, note.id)
+
+    override fun changedFiles(file: VirtualFile): List<VirtualFile> = emptyList()
 }
