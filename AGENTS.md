@@ -28,6 +28,11 @@ Plans live in `.plans/` (gitignored); read the current one before working and ti
 - `buildSearchableOptions` starts a headless IDE on the same sandbox as `runIde` and fails while a `runIde` window is open. Close it, or add `-x buildSearchableOptions`.
 - CLI behaviour is tested against `src/test/resources/fake-yac.sh` run through `/bin/sh` (`YacTestCase.useFakePhp()`; `TemporaryTree.fakeYac()` installs it as `vendor/bin/yac` in a real temp directory). Extend `YacTestCase`: it resets settings and the notifier. Assert exact values.
 
+## Releasing
+
+- Bump `version` in `build.gradle.kts`, move the `[Unreleased]` CHANGELOG entries into `## [x.y.z] - date` (the plugin's change notes come from that section), commit, then push a tag `vx.y.z` through the `github-piokamie` alias.
+- `.github/workflows/release.yml` checks the tag matches `version`, runs `./gradlew build verifyPlugin`, and publishes a GitHub release with `yac-phpstorm-x.y.z.zip` and the CHANGELOG section as notes.
+
 ## Git
 
 - Personal project: commit as `Piotr Kamieniecki <piokamie@gmail.com>` (repo-local config), push through the `github-piokamie` SSH alias, no co-author trailer.

@@ -42,13 +42,13 @@ Notes are shown only below a root that has `.yac/`. If such a root has no yac bi
 
 ## Installation
 
-Until the plugin is on the JetBrains Marketplace, build it and install the zip:
+Until the plugin is on the JetBrains Marketplace, install it from the GitHub release:
 
-```bash
-./gradlew buildPlugin
-```
+1. Download `yac-phpstorm-<version>.zip` from the [latest release](https://github.com/Piokamie/yac-phpstorm/releases/latest). Do not unzip it.
+2. In PhpStorm: **Settings | Plugins | ⚙ | Install Plugin from Disk…**, pick the zip, and restart the IDE when asked.
+3. In your project: `composer require --dev icebear/yac` (a version with `yac context --stdin`). Notes appear once the project has a `.yac/` directory, e.g. after `vendor/bin/yac init` or your first Extract.
 
-Then **Settings | Plugins | ⚙ | Install Plugin from Disk…** and pick `build/distributions/yac-phpstorm-0.1.0.zip`.
+To update, install the newer zip the same way. To build it yourself, run `./gradlew buildPlugin` and pick `build/distributions/yac-phpstorm-<version>.zip`.
 
 ## Settings
 
