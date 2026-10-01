@@ -8,6 +8,9 @@ import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import dev.icebear.yac.actions.undo.PendingSources
+import dev.icebear.yac.actions.undo.YacRunState
+import dev.icebear.yac.notes.YacNotesService
 import dev.icebear.yac.settings.YacSettings
 import java.nio.file.Files
 import java.nio.file.Path
@@ -27,6 +30,12 @@ class TemporaryTree(val path: Path) {
         val file = path.resolve(relativePath)
         Files.createDirectories(file.parent)
         Files.writeString(file, contents)
+    }
+
+    fun bytes(relativePath: String, contents: ByteArray): TemporaryTree = apply {
+        val file = path.resolve(relativePath)
+        Files.createDirectories(file.parent)
+        Files.write(file, contents)
     }
 
     fun directory(relativePath: String): TemporaryTree = apply { Files.createDirectories(path.resolve(relativePath)) }
@@ -55,8 +64,14 @@ class TemporaryTree(val path: Path) {
 abstract class YacTestCase : BasePlatformTestCase() {
     override fun tearDown() {
         try {
+            project.service<YacNotesService>().cancelPendingRefreshes()
+            val state = project.service<YacRunState>()
+            val isRunning = state.isRunning
+            state.finish()
+            project.service<PendingSources>().releaseAll()
             project.service<YacSettings>().loadState(YacSettings.Options())
             project.service<YacNotifier>().reset()
+            assertFalse("A yac run was still in flight when the test ended.", isRunning)
         } finally {
             super.tearDown()
         }

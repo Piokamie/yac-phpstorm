@@ -25,10 +25,12 @@ abstract class NoteAction(
         val project = e.project ?: return
         val file = file ?: return
         val environment = YacEnvironment.of(project, file) ?: return
-        YacCommandRunner(project).run(environment, progressTitle(), arguments(), changedFiles(file))
+        YacCommandRunner(project).run(environment, progressTitle(), arguments(), changedFiles(file), supportsDiff = supportsDiff(), undoFiles = listOf(file))
     }
 
     protected open fun isApplicable(): Boolean = true
+
+    internal open fun supportsDiff(): Boolean = false
 
     protected abstract fun progressTitle(): String
 
@@ -40,6 +42,8 @@ abstract class NoteAction(
 class PromoteNoteAction(note: Note, file: VirtualFile?) :
     NoteAction(note, file, "Promote to PHPDoc", "Turn this YAC note into a human PHPDoc comment above the code") {
     override fun isApplicable(): Boolean = note.isResolved
+
+    override fun supportsDiff(): Boolean = true
 
     override fun progressTitle(): String = "Promoting ${note.id}"
 

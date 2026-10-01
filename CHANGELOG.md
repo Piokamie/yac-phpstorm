@@ -25,4 +25,9 @@ First release: YAC notes in the PhpStorm editor, backed by the project's own `ya
 • yac root per file, found like the CLI finds it: the nearest directory with `.yac/` or `.git`; the binary is the nearest `vendor/bin/yac` between the file and that root, then `bin/yac` in the root
 • Settings | Tools | YAC: yac binary path, PHP executable, show or hide the note text
   - PHP: the PHP executable setting, else the project's local CLI interpreter, else `php` from the PATH; a remote interpreter is not used, and the plugin says so once
+• Undo for every YAC action: Cmd+Z (or Edit | Undo) reverts Promote, Inject, Extract, Remove Note and Yeet in one step, redo re-applies
+  - PHP text in open documents is undone like a normal edit; sidecars, both `.gitignore` files and files without an open document get back exactly their bytes from before the action, and undoing a first Extract removes `.yac/` again
+  - Undo and redo are refused, writing nothing, when such a file changed since the action (e.g. an agent's `yac add`) or while a yac action is running; only one yac action runs at a time per project
+  - Promote, Inject and Extract do a `--dry-run --diff` first to learn which files will change; runs whose preview fails (exit 2), that change more than 200 PHP files, that you cancel, or whose files you edit while yac runs are not undoable, and the plugin says so
+  - While yac runs, the IDE neither reloads nor saves the affected documents
 • Supports PhpStorm 2025.3 and newer (verified against 2025.3.3 and 2026.2); requires a yac version with `context --stdin`

@@ -2,7 +2,7 @@
 
 Shows [YAC](https://github.com/Piokamie/yac) agent notes next to the PHP code they describe, and lets you promote, remove, extract, inject and yeet them without leaving the editor.
 
-YAC keeps comments written by coding agents out of your source: they live in `.yac/` sidecars and are anchored to statements by their code. This plugin is a thin client of the project's own `yac` CLI. It never works out anchors itself and never writes sidecars or source files; every read goes through `yac context` and every change through the matching `yac` command.
+YAC keeps comments written by coding agents out of your source: they live in `.yac/` sidecars and are anchored to statements by their code. This plugin is a thin client of the project's own `yac` CLI. It never works out anchors itself and never decides what a sidecar or a source file should contain: every read goes through `yac context` and every change through the matching `yac` command. To make actions undoable it only replays yac's own results: yac's new PHP text into the open documents after a run, and the exact bytes from before or after a run on undo/redo.
 
 ## What you get
 
@@ -13,6 +13,17 @@ YAC keeps comments written by coding agents out of your source: they live in `.y
 - **`YAC` context menu** in the editor and the Project view: Extract Inline Notes, Inject Notes as Inline Comments, Yeet Notes… Works on files, directories and the project root, and only appears when a yac binary is found and the whole selection is under one yac root.
 
 Each action saves your documents, runs the CLI in the background (cancel it from the progress bar; there is no timeout), reloads the changed files and `.yac/` from disk and reports yac's own output: an info notification on success, a warning when yac refused (exit 1), an error when it could not run (exit 2).
+
+## Undo
+
+Every action is undoable. Cmd+Z in the affected editor, or Edit | Undo anywhere in the project, reverts the whole action in one step: the PHP text (as a normal editor undo) and the files under `.yac/`, plus the root `.gitignore` if yac's first run created or extended it. Redo re-applies it. Reverted files are saved.
+
+- Sidecars, the `.gitignore` files and any file without an open document get back exactly their bytes from before the action. If one of them was changed again since (an agent ran `yac add`, you switched branches), undo is refused and nothing is written: "Cannot undo: <path> changed after this YAC action. Restore it or discard the change, then try again." Redo works the same way. PHP text in open documents follows normal editor undo.
+- Undo and redo are also refused while a yac action is running ("yac is still running; try again when it finishes."). Only one action runs at a time per project; a second one is refused with "Another yac action is still running."
+- Promote, Inject and Extract run yac twice: a `--dry-run --diff` first, to learn which files will change, then the real command. A run that skips some notes (exit 1) is still undoable.
+- Undoing the first Extract of a project removes `.yac/` again, unless something else has been put in it since.
+- Some runs are not undoable, and the plugin says so: the dry run failed ("yac could not preview it first"), the action changes more than 200 PHP files, a file was edited in the editor before yac finished (your typed text is kept), or the changes could not be captured. A cancelled run is not undoable either.
+- Limits: the plugin cannot take yac's own file lock; the exact-bytes check is the only guard against a yac run started elsewhere. A restore that fails halfway (an IO error) is reported but not rolled back.
 
 ## How yac is found
 

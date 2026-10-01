@@ -51,6 +51,10 @@ class YacNotesService(private val project: Project, private val scope: Coroutine
         return job
     }
 
+    internal fun cancelPendingRefreshes() {
+        jobs.values.forEach { it.cancel() }
+    }
+
     fun showCached(editor: Editor) {
         editor.document.getUserData(notesKey)?.let { NotesPresenter.render(editor, it, shouldShowInlays()) }
     }

@@ -30,9 +30,8 @@ class YacSidecarListener(private val project: Project) : BulkFileListener {
         private const val YAC_CONTENTS = "$YAC_SEGMENT/"
         private const val CACHE_SEGMENT = YAC_CONTENTS + YacEnvironment.CACHE_DIRECTORY
         private const val CACHE_CONTENTS = "$CACHE_SEGMENT/"
-        private const val LOCK_NAME = ".lock"
-        private const val LOCK_FILE = YAC_CONTENTS + LOCK_NAME
-        private const val BINARY = "/bin/yac"
+        private const val LOCK_PATH = YAC_CONTENTS + YacEnvironment.LOCK_FILE
+        private const val BINARY = "/" + YacEnvironment.REPOSITORY_YAC
 
         internal fun isYacChange(path: String): Boolean {
             if (path.endsWith(BINARY)) {
@@ -41,7 +40,7 @@ class YacSidecarListener(private val project: Project) : BulkFileListener {
 
             val isCache = path.endsWith(CACHE_SEGMENT) || path.contains(CACHE_CONTENTS)
 
-            return (path.endsWith(YAC_SEGMENT) || path.contains(YAC_CONTENTS)) && !isCache && !path.endsWith(LOCK_FILE)
+            return (path.endsWith(YAC_SEGMENT) || path.contains(YAC_CONTENTS)) && !isCache && !path.endsWith(LOCK_PATH)
         }
     }
 }

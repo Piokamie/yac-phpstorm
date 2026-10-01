@@ -28,10 +28,14 @@ class YacEnvironment private constructor(
         const val CACHE_DIRECTORY = ".cache"
         const val SIDECAR_EXTENSION = ".yac"
         const val CURRENT_DIRECTORY = "."
+        const val LOCK_FILE = ".lock"
+        const val GITIGNORE = ".gitignore"
+        internal const val YAC_GITIGNORE = "$YAC_DIRECTORY/$GITIGNORE"
+        const val TEMPORARY_PREFIX = ".yac-tmp-"
         private const val DEFAULT_PHP = "php"
         private const val GIT_MARKER = ".git"
         private const val VENDOR_YAC = "vendor/bin/yac"
-        private const val REPOSITORY_YAC = "bin/yac"
+        internal const val REPOSITORY_YAC = "bin/yac"
 
         fun of(project: Project, file: VirtualFile): YacEnvironment? {
             if (!file.isInLocalFileSystem) {
@@ -46,6 +50,10 @@ class YacEnvironment private constructor(
 
             return YacEnvironment(root, cli, interpreter.isRemote)
         }
+
+        internal fun yacPath(relative: String): String = "$YAC_DIRECTORY/$relative"
+
+        internal fun sidecarOf(source: String): String = yacPath(source + SIDECAR_EXTENSION)
 
         internal fun rootOf(file: VirtualFile): VirtualFile? = directoriesUpFrom(file).firstOrNull { directory ->
             true == directory.findChild(YAC_DIRECTORY)?.isDirectory || null != directory.findChild(GIT_MARKER)

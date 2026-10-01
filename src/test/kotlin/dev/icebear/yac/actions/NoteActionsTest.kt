@@ -35,4 +35,10 @@ class NoteActionsTest : YacTestCase() {
             ).map { isEnabled(it) },
         )
     }
+
+    fun testOnlyPromoteAsksForADiffPreview() {
+        val note = Note("yac_01", 2, NoteStatus.RESOLVED, null, "Note.")
+
+        assertEquals(listOf(true, false), listOf(PromoteNoteAction(note, null).supportsDiff(), RemoveNoteAction(note, null).supportsDiff()))
+    }
 }

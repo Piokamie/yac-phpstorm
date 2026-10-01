@@ -11,7 +11,7 @@ import com.intellij.openapi.vfs.VirtualFile
 import dev.icebear.yac.YacEnvironment
 import dev.icebear.yac.cli.YacCommands
 
-abstract class FileCommandAction(private val command: String, private val progressTitle: String) : DumbAwareAction() {
+abstract class FileCommandAction(private val command: String, private val progressTitle: String, internal val supportsDiff: Boolean) : DumbAwareAction() {
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
 
     override fun update(e: AnActionEvent) {
@@ -25,7 +25,7 @@ abstract class FileCommandAction(private val command: String, private val progre
             return
         }
 
-        YacCommandRunner(project).run(target.environment, progressTitle, listOf(command) + target.sources, target.files)
+        YacCommandRunner(project).run(target.environment, progressTitle, listOf(command) + target.sources, target.files, supportsDiff = supportsDiff, undoFiles = target.files)
     }
 
     protected open fun confirm(project: Project, target: Target): Boolean = true
@@ -55,11 +55,11 @@ abstract class FileCommandAction(private val command: String, private val progre
     }
 }
 
-class ExtractFileAction : FileCommandAction(YacCommands.EXTRACT, "Extracting inline YAC notes")
+class ExtractFileAction : FileCommandAction(command = YacCommands.EXTRACT, progressTitle = "Extracting inline YAC notes", supportsDiff = true)
 
-class InjectFileAction : FileCommandAction(YacCommands.INJECT, "Injecting YAC notes")
+class InjectFileAction : FileCommandAction(command = YacCommands.INJECT, progressTitle = "Injecting YAC notes", supportsDiff = true)
 
-class YeetFileAction : FileCommandAction(YacCommands.YEET, "Deleting YAC notes") {
+class YeetFileAction : FileCommandAction(command = YacCommands.YEET, progressTitle = "Deleting YAC notes", supportsDiff = false) {
     override fun confirm(project: Project, target: Target): Boolean =
         Messages.YES == Messages.showYesNoDialog(project, question(target.sources, target.environment.root.name), TITLE, Messages.getQuestionIcon())
 

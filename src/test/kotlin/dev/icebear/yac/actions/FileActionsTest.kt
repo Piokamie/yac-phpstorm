@@ -59,6 +59,13 @@ class FileActionsTest : YacTestCase() {
         assertNull(FileCommandAction.target(project, listOf(first.find("A.php"), second.find("B.php"))))
     }
 
+    fun testOnlyTheCommandsThatCanPreviewADiffAskForOne() {
+        assertEquals(
+            listOf(true, true, false),
+            listOf(ExtractFileAction(), InjectFileAction(), YeetFileAction()).map { it.supportsDiff },
+        )
+    }
+
     fun testYeetQuestionNamesTheRootAndCutsLongLists() {
         assertEquals(
             "Delete all YAC notes of:\n\nthe whole project (app)\nsrc/A.php\n\nThe PHP source is not touched.",

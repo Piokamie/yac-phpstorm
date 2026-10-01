@@ -7,4 +7,7 @@ object YacCommands {
     const val EXTRACT = "extract"
     const val INJECT = "inject"
     const val YEET = "yeet"
+    const val DRY_RUN = "--dry-run"
+    const val DIFF = "--diff"
+    val NOTE_COMMANDS = setOf(PROMOTE, REMOVE)
 }

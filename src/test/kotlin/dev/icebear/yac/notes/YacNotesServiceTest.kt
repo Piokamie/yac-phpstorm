@@ -53,6 +53,16 @@ class YacNotesServiceTest : YacTestCase() {
     private fun inlayTexts(editor: Editor): List<String> =
         editor.inlayModel.getBlockElementsInRange(0, editor.document.textLength, NoteInlayRenderer::class.java).map { it.renderer.note.comment }
 
+    fun testCancellingPendingRefreshesStopsTheScheduledJobs() {
+        val editor = open(TemporaryTree.create().directory(".yac").fakeYac().file("ok.php", "<?php foo();"))
+        val service = project.service<YacNotesService>()
+        val job = service.scheduleRefresh(editor.document, DELAY_MILLIS)
+
+        service.cancelPendingRefreshes()
+
+        assertTrue(job.isCancelled)
+    }
+
     fun testNotesAreResolvedAgainstTheUnsavedBuffer() {
         useFakePhp()
         val received = collectNotifications()
@@ -183,6 +193,7 @@ class YacNotesServiceTest : YacTestCase() {
     }
 
     private companion object {
+        const val DELAY_MILLIS = 60_000L
         const val NOTE_ID = "yac_01JB8M3Z4XAAAAAAAAAAAAAAAA"
         const val WARNING = "Sidecar .yac/x.php.yac is invalid"
         const val CANNOT_RUN = "Cannot run yac"

@@ -12,6 +12,7 @@
 
     <extensions defaultExtensionNs="com.intellij">
         <notificationGroup id="dev.icebear.yac" displayType="BALLOON" bundle="messages.YacBundle" key="notification.group.yac"/>
+        <fileDocumentSynchronizationVetoer implementation="dev.icebear.yac.actions.undo.PendingSourcesVetoer"/>
         <editorFactoryListener implementation="dev.icebear.yac.notes.YacEditorListener"/>
         <editorFactoryDocumentListener implementation="dev.icebear.yac.notes.YacDocumentListener"/>
         <projectConfigurable parentId="tools" instance="dev.icebear.yac.settings.YacConfigurable" id="dev.icebear.yac.settings" displayName="YAC"
